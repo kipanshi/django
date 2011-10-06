@@ -1,16 +1,20 @@
 ==========================
-Django 1.3.1 release notes
+Django 1.3.1.1 release notes
 ==========================
 
-*September 9, 2011*
+*October 7, 2011*
 
-Welcome to Django 1.3.1!
+Welcome to Django 1.3.1.1!
 
-This is the first security release in the Django 1.3 series, fixing several
-security issues in Django 1.3.  Django 1.3.1 is a recommended upgrade for
-all users of Django 1.3.
+This is a patch release, itroducing port of BugFix #3615 from trunk.
 
-For a full list of issues addressed in this release, see the `security
-advisory`_.
+* It is now possible to load fixtures containing forward references when using
+  MySQL with the InnoDB database engine.
 
-.. _security advisory: https://www.djangoproject.com/weblog/2011/sep/09/security-releases-issued/
+
+Detailed information can be found here:
+
+`https://code.djangoproject.com/ticket/3615`_.
+
+.. _https://code.djangoproject.com/ticket/3615: https://code.djangoproject.com/ticket/3615/
+

@@ -1,9 +1,9 @@
-import decimal
 try:
     import thread
 except ImportError:
     import dummy_thread as thread
 from threading import local
+from contextlib import contextmanager
 
 from django.conf import settings
 from django.db import DEFAULT_DB_ALIAS
@@ -239,6 +239,35 @@ class BaseDatabaseWrapper(local):
         if self.savepoint_state:
             self._savepoint_commit(sid)
 
+    @contextmanager
+    def constraint_checks_disabled(self):
+        disabled = self.disable_constraint_checking()
+        try:
+            yield
+        finally:
+            if disabled:
+                self.enable_constraint_checking()
+
+    def disable_constraint_checking(self):
+        """
+        Backends can implement as needed to temporarily disable foreign key constraint
+        checking.
+        """
+        pass
+
+    def enable_constraint_checking(self):
+        """
+        Backends can implement as needed to re-enable foreign key constraint checking.
+        """
+        pass
+
+    def check_constraints(self, table_names=None):
+        """
+        Backends can override this method if they can apply constraint checking (e.g. via "SET CONSTRAINTS
+        ALL IMMEDIATE"). Should raise an IntegrityError if any invalid foreign key references are encountered.
+        """
+        pass
+
     def close(self):
         if self.connection is not None:
             self.connection.close()
@@ -279,6 +308,8 @@ class BaseDatabaseFeatures(object):
     # integer primary keys.
     related_fields_match_type = False
     allow_sliced_subqueries = True
+    has_select_for_update = False
+    has_select_for_update_nowait = False
 
     # Does the default test database allow multiple connections?
     # Usually an indication that the test database is in-memory
@@ -388,7 +419,8 @@ class BaseDatabaseOperations(object):
     """
     compiler_module = "django.db.models.sql.compiler"
 
-    def __init__(self):
+    def __init__(self, connection):
+        self.connection = connection
         self._cache = None
 
     def autoinc_sql(self, table, column):
@@ -474,6 +506,15 @@ class BaseDatabaseOperations(object):
         ordering.
         """
         return []
+
+    def for_update_sql(self, nowait=False):
+        """
+        Returns the FOR UPDATE SQL clause to lock rows for an update operation.
+        """
+        if nowait:
+            return 'FOR UPDATE NOWAIT'
+        else:
+            return 'FOR UPDATE'
 
     def fulltext_search_sql(self, field_name):
         """
@@ -857,6 +898,19 @@ class BaseDatabaseIntrospection(object):
                         sequence_list.append({'table': f.m2m_db_table(), 'column': None})
 
         return sequence_list
+
+    def get_key_columns(self, cursor, table_name):
+        """
+        Backends can override this to return a list of (column_name, referenced_table_name,
+        referenced_column_name) for all key columns in given table.
+        """
+        raise NotImplementedError
+
+    def get_primary_key_column(self, cursor, table_name):
+        """
+        Backends can override this to return the column name of the primary key for the given table.
+        """
+        raise NotImplementedError
 
 class BaseDatabaseClient(object):
     """
